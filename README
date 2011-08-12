@@ -1,0 +1,14 @@
+logdetect - Realtime log analyzing application, can work as Intrusion Detection System or Intrusion Prevention System.
+            It also can be used as "error detection system", its possible to parse dmesg, system messages etc.
+
+** THIS IS A FIRST VERSION, ITS IN ALPHA STAGE SO DONT USE IT IN PRODUCTION SERVERS YET **
+
+
+Features:
+ + Realtime monitoring
+ + Easy configuration
+ + Extensible by parsers and filters
+
+Changelog:
+12.08.2011 (v.0.1) <webnull.www@gmail.com>:
+    + First version
