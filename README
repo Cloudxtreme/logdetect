@@ -15,6 +15,9 @@ Requirements:
  * SQLite3 is optional for session saving
 
 Changelog:
+14.08.2011 (v.0.5.1) <webnull.www@gmail.com>:
+    + Added license to main file
+
 14.08.2011 (v.0.5) <webnull.www@gmail.com>:
     + Versioning informations
     + lighttpd_accesslog now automaticaly unescaping URLs
