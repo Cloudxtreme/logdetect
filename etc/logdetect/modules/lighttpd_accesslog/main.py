@@ -2,7 +2,13 @@
 
 #::ffff:192.168.1.xx oneill - [26/Apr/2011:18:02:42 +0200] "GET /sites/zuadmin/sls.js HTTP/1.1" 304 0 "http://oneill/sites/zuadmin/?seo_id=login" "Mozilla/5.0 (X11; U; Gentoo Linux; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/11.0.696.3"
 
-import re, urllib
+import re, sys
+
+# Python 2 and Python 3 compatibility
+if sys.version_info[0] >= 3:
+    from urllib.parse import unquote
+else:
+    from urllib import unquote
 
 class LogdetectExtension:
     parent = ""
@@ -15,7 +21,7 @@ class LogdetectExtension:
 
         # parse all changed lines
         for Item in data:
-            Find = re.findall("([0-9\.\:a-zA-Z]+) ([0-9\.\:a-zA-Z]+) - \[(.*)\] \"(.*)\" ([0-9]+) ([0-9]+) \"(.*)\" \"(.*)\"", Item)
+            Find = re.findall("([0-9\.\:a-zA-Z]+) ([0-9\.\:a-zA-Z]+) - \[(.*)\] \"(.*)\" ([0-9]+) ([0-9]+) \"(.*)\" \"(.*)\"", str(Item))
 
             if len(Find) == 0:
                 continue
@@ -28,7 +34,7 @@ class LogdetectExtension:
                 IP = exp[(len(exp)-1)]
 
             matches = dict()
-            matches['filter'] = urllib.unquote(Find[0][3]) # example: GET /blabla HTTP/1.1
+            matches['filter'] = unquote(Find[0][3]) # example: GET /blabla HTTP/1.1
             matches['uid'] = IP # example: 10.0.0.3
             matches['all'] = Find[0] # All matches
             itemsList.append(matches)

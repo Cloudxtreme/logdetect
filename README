@@ -15,6 +15,9 @@ Requirements:
  * SQLite3 is optional for session saving
 
 Changelog:
+14.08.2011 (v.0.6) <webnull.www@gmail.com>:
+    * Fixed support for Python 3
+
 14.08.2011 (v.0.5.1) <webnull.www@gmail.com>:
     + Added license to main file
 

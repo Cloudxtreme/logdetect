@@ -91,6 +91,7 @@ class logdatabase:
                 self.createEmptyDB()
 
         except Exception as e:
+            self.parent.output("WARNING, NO DATABASE LOADED")
             self.parent.output("logdatabase: "+str(e))
             return
 
@@ -265,8 +266,8 @@ class logdetect:
             if self.Options['debug'] == True:
                 self.output("parseExtension: Loading "+extension+" extension from "+self.Options['modules_dir']+extension+"/main.py")
 
-            exec("import "+extension+".main as CurrentModule")
-            Object = CurrentModule.LogdetectExtension(self)
+            exec("import "+extension+".main as CurrentModule; self.CurrentModule = CurrentModule")
+            Object = self.CurrentModule.LogdetectExtension(self)
             self.Extensions[extension] = Object
         except Exception as e:
             self.output("Error: Cannot load extension "+extension+", details: "+str(e))
