@@ -713,11 +713,15 @@ class logdetect:
         self.parseConfig(self.Options['config'])
 
         if self.Options['fork'] == True or 'logging' in self.Options['settings']:
-            self.Options['logging'] = True
-            self.log=logging.getLogger('logdetect')
-            handler = logging.FileHandler(self.Options['settings']['logging'])
-            self.log.addHandler(handler)
-            self.log.setLevel(logging.INFO)
+            try:
+                self.Options['logging'] = True
+                self.log=logging.getLogger('logdetect')
+                handler = logging.FileHandler(self.Options['settings']['logging'])
+                self.log.addHandler(handler)
+                self.log.setLevel(logging.INFO)
+            except IOError as e:
+                self.output("Cannot access to log file, "+str(e))
+                sys.exit(os.EX_OSFILE)
 
         self.output("logdetect is initializing...")
         self.db = logdatabase()

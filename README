@@ -15,6 +15,9 @@ Requirements:
  * SQLite3 is optional for session saving
 
 Changelog:
+14.08.2011 (v.0.7.1) <webnull.www@gmail.com>:
+    + Checking permissions of logging file
+
 14.08.2011 (v.0.7) <webnull.www@gmail.com>:
     + Added logging to file
 
