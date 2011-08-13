@@ -208,14 +208,26 @@ class logdetect:
     Options['fork'] = False
     Options['debug'] = False
     Options['config'] = "/etc/logdetect/logdetect.conf"
+    Options['logging'] = False
     Extensions = dict()
     ExtensionInfo = dict()
     Filters = dict()
     Intruders = dict()
 
+
+
+
     def output(self, msg):
         """ Output messages to console or to log file """
-        print(strftime("%d/%m/%Y %H:%M:%S", localtime())+", "+inspect.stack()[1][3]+": "+msg)
+
+        if self.Options['logging'] == True:
+            self.log.info(strftime("%d/%m/%Y %H:%M:%S", localtime())+", "+inspect.stack()[1][3]+": "+msg)
+        
+        if self.Options['fork'] == False:
+            print(strftime("%d/%m/%Y %H:%M:%S", localtime())+", "+inspect.stack()[1][3]+": "+msg)
+
+
+
 
     def GNUOpt(self):
         try:
@@ -552,7 +564,7 @@ class logdetect:
                 Info['last_modified'] = 1 # required to avoid first time parsing
             else:
                 if self.Options['debug'] == True:
-                    self.output("No database record for \""+File+"\"")
+                    self.output("No database record for \""+Info['file']+"\"")
 
         if not Info['last_modified'] == os.path.getmtime(Info['file']) and not os.path.getsize(Info['file']) == 0:
             # create new handler
@@ -698,8 +710,16 @@ class logdetect:
 
     def main(self):
         self.GNUOpt()
-        self.output("logdetect 0.1")
         self.parseConfig(self.Options['config'])
+
+        if self.Options['fork'] == True or 'logging' in self.Options['settings']:
+            self.Options['logging'] = True
+            self.log=logging.getLogger('logdetect')
+            handler = logging.FileHandler(self.Options['settings']['logging'])
+            self.log.addHandler(handler)
+            self.log.setLevel(logging.INFO)
+
+        self.output("logdetect is initializing...")
         self.db = logdatabase()
         self.db.parent = self
         self.db.connectDB()
