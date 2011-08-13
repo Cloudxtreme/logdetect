@@ -9,6 +9,19 @@ Features:
  + Easy configuration
  + Extensible by parsers and filters
 
+Requirements:
+ * Python 2.6 or Python 2.7 or Python 3.1 or Python 3.2
+ * Unix-like operating system
+ * SQLite3 is optional for session saving
+
 Changelog:
+14.08.2011 (v.0.5) <webnull.www@gmail.com>:
+    + Versioning informations
+    + lighttpd_accesslog now automaticaly unescaping URLs
+    + First support for SQLite3 (resume function for files)
+    + Support for Python 3
+    * Fixed whitelists support
+    * Fixed error in checkLog which interrupted daemon
+
 12.08.2011 (v.0.1) <webnull.www@gmail.com>:
     + First version

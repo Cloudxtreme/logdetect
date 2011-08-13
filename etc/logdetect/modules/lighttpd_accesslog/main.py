@@ -2,7 +2,7 @@
 
 #::ffff:192.168.1.xx oneill - [26/Apr/2011:18:02:42 +0200] "GET /sites/zuadmin/sls.js HTTP/1.1" 304 0 "http://oneill/sites/zuadmin/?seo_id=login" "Mozilla/5.0 (X11; U; Gentoo Linux; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/11.0.696.3"
 
-import re
+import re, urllib
 
 class LogdetectExtension:
     parent = ""
@@ -28,7 +28,7 @@ class LogdetectExtension:
                 IP = exp[(len(exp)-1)]
 
             matches = dict()
-            matches['filter'] = Find[0][3] # example: GET /blabla HTTP/1.1
+            matches['filter'] = urllib.unquote(Find[0][3]) # example: GET /blabla HTTP/1.1
             matches['uid'] = IP # example: 10.0.0.3
             matches['all'] = Find[0] # All matches
             itemsList.append(matches)

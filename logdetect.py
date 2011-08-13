@@ -1,7 +1,7 @@
 #!/usr/bin/python
-import os, sys, getopt, re, logging, time, inspect
+import os, sys, getopt, re, logging, time, inspect, base64
 
-if sys.version_info.major == 3:
+if sys.version_info[0] >= 3:
     import configparser
 else:
     import ConfigParser as configparser
@@ -22,6 +22,16 @@ sys.path.append("/etc/logdetect/modules/")
      Works by detecting threats and identifing its level, if user will reach maximum warnings level will be banned on iptables or in another way using custom command.
 """
 
+class MySum:
+    def __init__(self):
+        self.count = 0
+
+    def step(self, value):
+        self.count += value
+
+    def finalize(self):
+        return self.count
+
 class LogThread(Thread):
     def __init__(self,cmd,Plugin,sObject):
         Thread.__init__(self) # initialize thread
@@ -38,22 +48,81 @@ class logdatabase:
     cursor = ""
     parent = ""
 
+    def createEmptyDB(self):
+        self.parent.output("Creating new database")
+        self.cursor.execute("CREATE TABLE `ld_intruders` (uid varchar(60) primary key, points int(10), banned int(1), reason varchar(60));")
+        self.cursor.execute("CREATE TABLE `ld_files` (id int(60) primary key, extension varchar(60), file varchar(60), lastline text, lastmodified int(40), position int(30));")
+        self.socket.commit()
+
     def connectDB(self):
         # if database was not set, skip it
-        if not self.parent.Options['settings'].has_key('database'):
+        if not 'database' in self.parent.Options['settings']:
+            self.socket = ""
             return
 
+        newDB = False
+
         try:
-            self.socket = sqlite3.connect(self.parent.Options['settings']['database'])
+            if not os.path.isfile(self.parent.Options['settings']['database']):
+                newDB = True
+
+            self.socket = sqlite3.connect(self.parent.Options['settings']['database'], check_same_thread = False)
+            self.socket.create_aggregate("mysum", 1, MySum)
             self.socket.isolation_level = None
+            self.socket.row_factory = self.dict_factory
             self.cursor = self.socket.cursor()
-        except sqlite3.OperationalError as e:
+
+            if newDB == True:
+                self.createEmptyDB()
+
+        except Exception as e:
             self.parent.output("logdatabase: "+str(e))
             return
 
     # save file parsing position to database
-    def setPosition(self, Extension, Position):
-        return
+    def setPosition(self, File, Extension, Position, LastLine, LastModification):
+        if self.socket == "":
+            return
+
+        SQL = ""
+
+        try:
+            query = self.cursor.execute('SELECT * FROM `ld_files` WHERE `extension`="'+Extension+'" AND `file`="'+File+'";')
+
+            if query.fetchone() == None:
+                SQL = "INSERT INTO `ld_files` (id, extension, file, lastline, lastmodified, position) VALUES (NULL, '"+str(Extension)+"', '"+str(File)+"', '"+base64.b64encode(str(LastLine))+"', '"+str(LastModification)+"', '"+str(Position)+"');"
+            else:
+                SQL = 'UPDATE `ld_files` SET `extension`="'+str(Extension)+'", `file`="'+str(File)+'", `lastline`="'+base64.b64encode(str(LastLine))+'", `lastmodified`="'+str(LastModification)+'", `position`="'+str(Position)+'" WHERE `extension`="'+Extension+'" and `file`="'+File+'"'
+
+            if self.parent.Options['debug'] == True:
+                self.parent.output("Executing query \""+SQL+"\"")
+            query = self.cursor.execute(SQL)
+        except Exception as e:
+            self.parent.output("Failed to execute query '"+SQL+"', err='"+str(e)+"'")
+
+        return SQL
+
+    def dict_factory(self, cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
+
+    def getPosition(self, File, Extension):
+        if self.socket == "":
+            return
+
+        try:
+            query = self.cursor.execute('SELECT * FROM `ld_files` WHERE `extension`="'+Extension+'" AND `file`="'+File+'";')
+            Array = query.fetchone()            
+
+            if not Array == None:
+                return {'lastline': base64.b64decode(Array['lastline']), 'lastmodified': int(Array['lastmodified']), 'position': int(Array['position'])}
+            else:
+                return False
+
+        except Exception as e:
+            self.parent.output("Failed to execute query '"+SQL+"', err='"+str(e)+"'")
 
 class logdetect:
     def printUsage(self):
@@ -200,7 +269,7 @@ class logdetect:
 
         for INI in Files:
             # skip __init.py and main.py
-            if INI[-2:] == "py" or INI == "__init__.py" or INI == "main.py":
+            if INI[-2:] == "py" or INI == "__init__.py" or INI == "main.py" or INI[-3:] == "pyc":
                 continue
 
             Parser = configparser.ConfigParser()
@@ -273,10 +342,10 @@ class logdetect:
                     self.ExtensionInfo[Adress]['wait'] = 0
                     self.ExtensionInfo[Adress]['last_modified'] = 0
 
-                    if not self.ExtensionInfo[Adress].has_key('timer'):
+                    if not 'timer' in self.ExtensionInfo[Adress]:
                         self.ExtensionInfo[Adress]['timer'] = 5
 
-                    if not self.ExtensionInfo[Adress].has_key('file'):
+                    if not 'file' in self.ExtensionInfo[Adress]:
                         del self.ExtensionInfo[Adress]
                         self.output("parseConfig: Cannot load "+Adress+" extension, \"file\" attribute not found")
                         continue
@@ -293,13 +362,13 @@ class logdetect:
                     statVariables += 1
                     self.Options[Section][Option] = Parser.get(Section, Option)
 
-        if not self.Options['settings'].has_key('loopinterval'):
+        if not 'loopinterval' in self.Options['settings']:
             self.Options['settings']['loopinterval'] = 1.0
 
         self.output("Loaded "+str(statExtensions)+" extension(s), "+str(statConfigSections)+" config sections and "+str(statVariables)+" configuration variables")
 
     def dictGetKey(self, array, key):
-        if array.has_key(key):
+        if key in array:
             return array[key]
         else:
             return False
@@ -360,7 +429,7 @@ class logdetect:
         if self.whiteListCheck(UserID, Extension) == True:
             return
 
-        if not self.Intruders.has_key(str(UserID)):
+        if not str(UserID) in self.Intruders:
             self.Intruders[UserID] = dict()
             self.Intruders[UserID]['warn'] = 0
             self.Intruders[UserID]['problems'] = list()
@@ -409,7 +478,7 @@ class logdetect:
                 # regexp method   
                 try:   
                     Success = False
-                    if self.Filters[Extension][Filter].has_key('regexp'):
+                    if 'regexp' in self.Filters[Extension][Filter]:
                         #print "Matching filter: \""+self.Filters[Extension][Filter]['regexp']+"\" == \""+Item['filter']+"\""
                         # Ignore case?
                         if self.dictGetKey(self.Filters[Extension][Filter], 'casesensitive') == "False":
@@ -453,13 +522,28 @@ class logdetect:
         """ Check if file was modified, load modified lines """
 
         Info = self.ExtensionInfo[Extension]
+        Array = False
+
+        if Info['last_modified'] == 0:
+            
+            Array = self.db.getPosition(Info['file'], Extension)
+            if not Array == False and not Array == None:
+                if self.Options['debug'] == True:
+                    self.output("Resuming \""+Info['file']+"\", got position from database")
+
+                self.ExtensionInfo[Extension]['lastline'] = Array['lastline']
+                self.ExtensionInfo[Extension]['position'] = Array['position']
+                Info['last_modified'] = 1 # required to avoid first time parsing
+            else:
+                if self.Options['debug'] == True:
+                    self.output("No database record for \""+File+"\"")
 
         if not Info['last_modified'] == os.path.getmtime(Info['file']) and not os.path.getsize(Info['file']) == 0:
             # create new handler
             handler = open(Info['file'], 'rb')
 
             # create position details at first time
-            if not self.ExtensionInfo[Extension].has_key('lastline'):
+            if not 'lastline' in self.ExtensionInfo[Extension]:
                 self.ExtensionInfo[Extension]['lastlineid'] = 0
                 self.ExtensionInfo[Extension]['lastline'] = ""
 
@@ -476,7 +560,7 @@ class logdetect:
                     self.ExtensionInfo[Extension]['lastline'] = contents[(len(contents)-1)]
             else:
                 ##### continuing already parsed file
-                if Info.has_key('position'):
+                if 'position' in Info:
                     FoundLastLine = False
 
                     Position = int(Info['position'])
@@ -499,9 +583,6 @@ class logdetect:
                         if FoundLastLine == True:
                             contents.append(Item)
 
-                    # free memory from unnecessary code
-                    del contents_tmp
-
 
                     ##### if last line not found, it will try to search from beginning of file
                     if FoundLastLine == False:
@@ -522,12 +603,18 @@ class logdetect:
                         if FoundLastLine == False:
                             self.output("Detected that '"+Info['file']+"' was erased, starting from scratch")
 
+                    # free memory from unnecessary code
+                    del contents_tmp
+
 
                     #print "(AGAIN) LAST LINE SET: "+contents[(len(contents)-1)]
                     
                     if len(contents) > 0:
-                        self.ExtensionInfo[Extension]['lastlineid'] = int(self.ExtensionInfo[Extension]['lastlineid']) + (len(contents)-1)
-                        self.ExtensionInfo[Extension]['lastline'] = contents[(len(contents)-1)]
+                        try:
+                            self.ExtensionInfo[Extension]['lastlineid'] = int(self.ExtensionInfo[Extension]['lastlineid']) + (len(contents)-1)
+                            self.ExtensionInfo[Extension]['lastline'] = contents[(len(contents)-1)]
+                        except KeyError as e:
+                            self.output("Something went wrong, "+str(e))
 
                 else:
                     contents = handler.readlines()
@@ -546,7 +633,7 @@ class logdetect:
 
             if len(contents) > 0:
                 self.ExtensionInfo[Extension]['position'] = handler.tell()
-                #self.db.setPosition(Extension, self.ExtensionInfo[Extension]['position'])
+                self.db.setPosition(Info['file'], Extension, self.ExtensionInfo[Extension]['position'], self.ExtensionInfo[Extension]['lastline'], os.path.getmtime(Info['file']))
                 self.runExtension(Extension, contents)
 
             # close file freeing memory
