@@ -14,7 +14,7 @@
 ##                                                                         ##
 #############################################################################
 
-import os, sys, getopt, re, logging, time, inspect, base64
+import os, sys, getopt, re, logging, time, inspect, base64, ftplib, datetime, time
 
 if sys.version_info[0] >= 3:
     import configparser
@@ -551,9 +551,9 @@ class logdetect:
 
         Info = self.ExtensionInfo[Extension]
         Array = False
+        ModTime = False
 
         if Info['last_modified'] == 0:
-            
             Array = self.db.getPosition(Info['file'], Extension)
             if not Array == False and not Array == None:
                 if self.Options['debug'] == True:
@@ -566,7 +566,33 @@ class logdetect:
                 if self.Options['debug'] == True:
                     self.output("No database record for \""+Info['file']+"\"")
 
-        if not Info['last_modified'] == os.path.getmtime(Info['file']) and not os.path.getsize(Info['file']) == 0:
+            # first time check for modification date of file placed on FTP server
+            if not self.dictGetKey(Info, 'ftphost') == False:
+                Info['ftpfile'] = Info['file']
+                Info['file'] = "/tmp/"+base64.b64encode(Info['ftpfile'])+"_logdetect.tmp"
+                self.connectFTPServer(Extension)
+                ModTime = int(self.checkoutFTP(Extension))
+
+        else: # check modification date of file placed on FTP server
+            if not self.dictGetKey(Info, 'ftphost') == False:
+                ModTime = int(self.checkoutFTP(Extension))
+
+        # if not using FTP or other remote method
+        if ModTime == False:
+            ModTime = os.path.getmtime(Info['file'])
+
+        Info['last_modified'] = int(Info['last_modified'])
+
+        if not Info['last_modified'] == ModTime:
+
+            # downloading fresh, modified file from FTP
+            if not self.dictGetKey(Info, 'ftpfile') == False:
+                self.downloadFileFTP(Extension)
+
+            # if there is nothing to do just skip it
+            if os.path.getsize(Info['file']) == 0:
+                return
+
             # create new handler
             handler = open(Info['file'], 'rb')
 
@@ -574,7 +600,6 @@ class logdetect:
             if not 'lastline' in self.ExtensionInfo[Extension]:
                 self.ExtensionInfo[Extension]['lastlineid'] = 0
                 self.ExtensionInfo[Extension]['lastline'] = ""
-
 
             ##### first time parsing the file
             if Info['last_modified'] == 0:
@@ -661,12 +686,12 @@ class logdetect:
 
             if len(contents) > 0:
                 self.ExtensionInfo[Extension]['position'] = handler.tell()
-                self.db.setPosition(Info['file'], Extension, self.ExtensionInfo[Extension]['position'], self.ExtensionInfo[Extension]['lastline'], os.path.getmtime(Info['file']))
+                self.db.setPosition(Info['file'], Extension, self.ExtensionInfo[Extension]['position'], self.ExtensionInfo[Extension]['lastline'], ModTime)
                 self.runExtension(Extension, contents)
 
             # close file freeing memory
             handler.close()
-            self.ExtensionInfo[Extension]['last_modified'] = os.path.getmtime(Info['file'])
+            self.ExtensionInfo[Extension]['last_modified'] = ModTime
         else:
             return
             
@@ -731,6 +756,49 @@ class logdetect:
         self.loadGlobalWhiteList()
         # main loop
         self.monitorFiles()
+
+
+    ###### FTP SUPPORT #####
+    def MDTM2Timestamp(self, MDTM):
+        Date = MDTM[3:].strip()
+        return time.mktime(datetime.datetime(int(Date[0:4]), int(Date[4:6]), int(Date[6:8]), int(Date[8:10]), int(Date[10:12]), int(Date[12:14]) ).timetuple())
+
+    def connectFTPServer(self, Extension):
+        ftptls = self.dictGetKey(self.ExtensionInfo[Extension], 'ftptls')
+
+        # Use TLS Encryption?
+        if not ftptls == False:
+            self.ExtensionInfo[Extension]['ftpsocket'] = ftplib.FTP_TLS(self.ExtensionInfo[Extension]['ftphost'])
+        else:
+            self.ExtensionInfo[Extension]['ftpsocket'] = ftplib.FTP(self.ExtensionInfo[Extension]['ftphost'])
+        
+        # make a reference
+        ftp = self.ExtensionInfo[Extension]['ftpsocket']
+        
+        # anonymouse or authorized login?
+        ftplogin = self.dictGetKey(self.ExtensionInfo[Extension], 'ftplogin')
+
+        if ftplogin == False:
+            ftp.login()
+        else:
+            ftp.login(ftplogin, self.dictGetKey(self.ExtensionInfo[Extension], 'ftppasswd'))
+
+        # Enable TLS
+        if not ftptls == False:
+            ftp.prot_p()
+
+    def downloadFileFTP(self, Extension):
+        self.output("Saving ftp://"+self.ExtensionInfo[Extension]['ftphost']+"/"+self.ExtensionInfo[Extension]['ftpfile']+" to "+self.ExtensionInfo[Extension]['file'])
+        outfile = open(self.ExtensionInfo[Extension]['file'], 'wb')
+        self.ExtensionInfo[Extension]['ftpsocket'].retrbinary("RETR "+self.ExtensionInfo[Extension]['ftpfile'], outfile.write)
+        outfile.close()
+
+    def checkoutFTP(self, Extension):
+        try:
+            return self.MDTM2Timestamp(self.ExtensionInfo[Extension]['ftpsocket'].sendcmd('MDTM '+self.ExtensionInfo[Extension]['ftpfile']))
+        except ftplib.error_perm as e:
+            self.output("Error while performing date check. "+str(e))
+
 
 log = logdetect()
 log.main()
