@@ -8,6 +8,7 @@ Features:
  + Realtime monitoring
  + Easy configuration
  + Extensible by parsers and filters
+ + Remote log's checking using FTP (dont need to have shell on remote server)
 
 Requirements:
  * Python 2.6 or Python 2.7 or Python 3.1 or Python 3.2
