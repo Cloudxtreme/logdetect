@@ -16,6 +16,9 @@ Requirements:
  * SQLite3 is optional for session saving
 
 Changelog:
+28.08.2011 (v.0.9) <webnull.www@gmail.com>:
+    * Fixed threading in main loop, now jobs not stopping loop when executing
+
 15.08.2011 (v.0.8) <webnull.www@gmail.com>:
     + Added experimental FTP support
 

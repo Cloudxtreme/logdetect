@@ -373,6 +373,9 @@ class logdetect:
                     if not 'timer' in self.ExtensionInfo[Adress]:
                         self.ExtensionInfo[Adress]['timer'] = 5
 
+                    # job queue = ready (idle)
+                    self.ExtensionInfo[Adress]['state'] = 'idle'
+
                     if not 'file' in self.ExtensionInfo[Adress]:
                         del self.ExtensionInfo[Adress]
                         self.output("parseConfig: Cannot load "+Adress+" extension, \"file\" attribute not found")
@@ -548,7 +551,7 @@ class logdetect:
 
     def checkLog(self, Extension):
         """ Check if file was modified, load modified lines """
-
+        time.sleep(10)
         Info = self.ExtensionInfo[Extension]
         Array = False
         ModTime = False
@@ -692,8 +695,11 @@ class logdetect:
             # close file freeing memory
             handler.close()
             self.ExtensionInfo[Extension]['last_modified'] = ModTime
+            self.ExtensionInfo[Extension]['state'] = 'idle'
         else:
             return
+
+        self.ExtensionInfo[Extension]['state'] = 'idle'
             
 
 
@@ -705,24 +711,24 @@ class logdetect:
 
         while True:
             try:
-                time.sleep(float(self.Options['settings']['loopinterval']))
-                subThreads = list()
+                print("Sleeping "+str(self.Options['settings']['loopinterval']))
+                time.sleep(float(self.Options['settings']['loopinterval']))                
 
                 # time-queue system
                 for File in self.Extensions:
-                    if self.ExtensionInfo[File]['wait'] <= 0:
-                        # Executing
-                        self.ExtensionInfo[File]['wait'] = float(self.ExtensionInfo[File]['timer'])
-                        
-                        # threading
-                        current = LogThread("self.Plugin.checkLog(self.sObject)", self, File)
-                        current.start()
-                    else:
-                        # Waiting
-                        self.ExtensionInfo[File]['wait'] -= float(self.Options['settings']['loopinterval'])
-
-                for sThread in subThreads:
-                    sThread.join()
+                    if not self.ExtensionInfo[File]['state'] == 'executing':
+                        if self.ExtensionInfo[File]['wait'] <= 0:
+                            # Executing
+                            self.ExtensionInfo[File]['wait'] = float(self.ExtensionInfo[File]['timer'])
+                            self.ExtensionInfo[File]['state'] = 'executing'
+                            
+                            # threading
+                            current = Thread(target=self.checkLog, args=(File,))
+                            current.setDaemon(True)
+                            current.start()
+                        else:
+                            # Waiting
+                            self.ExtensionInfo[File]['wait'] -= float(self.Options['settings']['loopinterval'])
 
             except KeyboardInterrupt:
                 self.output("Got interrupt signal, exiting...")

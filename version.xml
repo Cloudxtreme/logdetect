@@ -11,7 +11,7 @@
 		<platform>BeOS</platform>
 	</platforms>
 
-	<version>0.8</version>
+	<version>0.9</version>
 	<mirrors>
 		<mirror>git://github.com/webnull/logdetect.git</mirror>
 	</mirrors>
