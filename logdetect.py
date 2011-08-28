@@ -711,7 +711,6 @@ class logdetect:
 
         while True:
             try:
-                print("Sleeping "+str(self.Options['settings']['loopinterval']))
                 time.sleep(float(self.Options['settings']['loopinterval']))                
 
                 # time-queue system

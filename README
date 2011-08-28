@@ -16,6 +16,9 @@ Requirements:
  * SQLite3 is optional for session saving
 
 Changelog:
+28.08.2011 (v.0.9.0.1) <webnull.www@gmail.com>:
+    - Removed debugging informations
+
 28.08.2011 (v.0.9) <webnull.www@gmail.com>:
     * Fixed threading in main loop, now jobs not stopping loop when executing
 
