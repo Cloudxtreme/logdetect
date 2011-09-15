@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python 
 #############################################################################
 ##                                                                         ##
 ##  Copyleft by WebNuLL < webnull.www at gmail dot com >                   ##
@@ -28,13 +28,13 @@ from threading import Thread
 try:
     import sqlite3
 except Exception:
-    True
+    pass
 
 sys.path.append("/etc/logdetect/modules/")
 
 """ Logdetect - Parse logs and take actions in real time.
      Configuralbe via ini files, parsers and filters.
-     Works by detecting threats and identifing its level, if user will reach maximum warnings level will be banned on iptables or in another way using custom command.
+     Works by detecting threats and identifing its level, if user reaches maximum level of warnings will be banned on iptables or in another way using custom command.
 """
 
 class MySum:
@@ -804,6 +804,6 @@ class logdetect:
         except ftplib.error_perm as e:
             self.output("Error while performing date check. "+str(e))
 
-
-log = logdetect()
-log.main()
+if __name__ == '__main__': 
+    log = logdetect()
+    log.main()
