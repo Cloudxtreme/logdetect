@@ -47,17 +47,6 @@ class MySum:
     def finalize(self):
         return self.count
 
-class LogThread(Thread):
-    def __init__(self,cmd,Plugin,sObject):
-        Thread.__init__(self) # initialize thread
-        self.Plugin = Plugin
-        self.sObject = sObject
-        self.status = "Idle"
-        self.cmd = cmd
-
-    def run(self):
-        exec(self.cmd)
-
 class logdatabase:
     socket = ""
     cursor = ""
